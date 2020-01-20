@@ -8,23 +8,9 @@ slider(
 );
 */
 
-// functoin vertical_slider()
+
 
 function	slider(slider_item, dot_item="", buttons=[], speed=1000, open=0, items_per_slide=1, animation="linear", pos=0){
-	// multiple items
-	// половинчатые переходы на тех где много айтемов
-
-	// draggable 
-
-	// auto
-	// auto_speed
-	
-	// make from it a class
-	// find out class switch_to* was called from and fill the vraibles with this information
-	// animation type (none, fade, slide, halfslide)
-	
-	// slider type (circl, line, ...)
-	
 	var items = document.getElementsByClassName(slider_item);	
 	
 	// creating slider and slider container class
@@ -47,7 +33,7 @@ function	slider(slider_item, dot_item="", buttons=[], speed=1000, open=0, items_
 	items[0].parentNode.style.overflow = "hidden";
 	items[0].parentNode.appendChild(slider); 
 	
-	$(items).prependTo(content); //replace it with pure js //moving all items into slider container
+	$(items).prependTo(content); //moving all items into slider container
 	
 	//styling container
 	content.style.whiteSpace = "nowrap";
@@ -110,12 +96,6 @@ function switch_to_next(items_class, dot_item, open) {
 
 	if( pos >= (slider_len(items) - 1) ) {
 		if(open){
-			// crate pseudo element
-			// swith to pseudoelement
-			// set dots to last
-			// if
-			//		swiches to lower then cur then display none cur; 
-			// suka blyat pizdec
 			pos = 0;
 		}
 	} else 
