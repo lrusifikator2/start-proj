@@ -15,14 +15,84 @@ const cssbeautify = require('gulp-cssbeautify');
 const autoprefixer = require('gulp-autoprefixer');
 const sassGlob = require('gulp-sass-glob');
 
-/* js */
-const jsuglify = require('gulp-uglify');
-const jsbeautify = require('gulp-beautify');
-const jsinclude = require('gulp-include')
-
 /* html */
 //const htmlconcat = require('');
 
+/* webpack settings */
+const webpack = require('webpack');
+let webpackConf;
+
+/*--------- files to compile ---------*/
+const jsFiles = ['./src/index.ts', './src/test.ts'];
+
+/* actual webpack */
+const config = {
+  mode: "development",
+
+  resolve: {
+    extensions: ['.ts', '.tsx']
+  },
+
+  module: {
+    rules: [
+      {     
+        test: /\.ts?$/,
+        loaders: 'ts-loader',
+    },
+    {
+      test: /\.js$/,
+      use: ["source-map-loader"],
+      enforce: "pre"
+    }
+  ]
+  },
+};
+
+function getFileName(file) {
+  let slashPos = file.lastIndexOf("/") + 1;
+  let dotPos;
+
+  file = file.substr(slashPos);
+  dotPos = file.lastIndexOf(".")
+
+  if(dotPos == -1)
+    dotPos = file.length;
+
+  return file.substr(0, dotPos);
+}
+
+//input files ['file1', 'file2', ... ,'fileN']
+//output [config1{}, config2{}, ... , configN{}]
+function formConfig(files, dir){
+  let ret = [];
+  for(let i = 0; i < files.length; i++){
+    let conf = Object.assign({}, config, {
+      entry: files[i],
+      output: {
+        filename: getFileName(files[i]) + ".js",
+        path: path.resolve(__dirname, dir),
+      },
+    });
+    ret.push(conf);
+  }
+  return ret;
+}
+
+
+//webpack config
+function assets(cb) {
+    return new Promise((resolve, reject) => {
+        webpack(formConfig(jsFiles, 'dist'), (err, stats) => {
+            if (err) {
+                return reject(err)
+            }
+            if (stats.hasErrors()) {
+                return reject(new Error(stats.compilation.errors.join('\n')))
+            }
+            resolve()
+        })
+    })
+}
 
 function css(m=false) {
   let add_func;
@@ -45,18 +115,10 @@ function css(m=false) {
 }
 
 function js(m=false) {
-  if(m == true){
-    add_func = jsuglify;
-  } else {
-    add_func = jsbeautify;
-  }
-
   return src("./" + proj_name + "/js/main.js", { sourcemaps: true })
     .pipe(sourcemaps.init())
-    .pipe(jsinclude()).on('error', console.log)
-    .pipe(add_func())
+    
     .pipe(sourcemaps.write('../maps'))
-    .pipe(dest('./' + proj_name + '/build/js', { sourcemaps: true }))
     .pipe(browSync.stream())
     
 }
@@ -77,33 +139,6 @@ function watch() {
   gwatch('./' + proj_name + '/js/**/*.js', js);
   gwatch('./' + proj_name + '/*.html').on('change', browSync.reload).on('change', html);
 }
-
-task(proj_name + "_mj", function() { 
-  return new Promise(function(resolve, reject) {
-    css();
-    js(true);
-    console.log("js minified");
-    resolve();
-  });
-});
-
-task(proj_name + "_mc", function() { 
-  return new Promise(function(resolve, reject) {
-    css(true);
-    js();
-    console.log("css minified");
-    resolve();
-  });
-});
-
-task(proj_name + "_m", function() { 
-  return new Promise(function(resolve, reject) {
-    css();
-    js();
-    console.log("js and css minified");
-    resolve();
-  });
-});
 
 task(proj_name, function() { 
   return new Promise(function(resolve, reject) {
