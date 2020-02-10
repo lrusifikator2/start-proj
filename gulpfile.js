@@ -1,12 +1,16 @@
 /* system */
 const path = require('path');
 const proj_name = path.resolve(__dirname, '.').split(path.sep).pop();
+const fs = require('fs');
 
 /* global */
 const { src, dest, parallel, task } = require('gulp');
 const gwatch = require('gulp').watch;
 const browSync = require('browser-sync').create();
 const sourcemaps = require('gulp-sourcemaps');
+const ssh = require('gulp-ssh');
+const built_folder = "built";
+const ext_replace = require('gulp-ext-replace');
 
 /* css */
 const sass = require('gulp-sass');
@@ -15,38 +19,33 @@ const cssbeautify = require('gulp-cssbeautify');
 const autoprefixer = require('gulp-autoprefixer');
 const sassGlob = require('gulp-sass-glob');
 
+/* js */
+const ts = require('gulp-typescript');
+const jsuglify = require('gulp-uglify');
+const jsbeautify = require('gulp-beautify');
+const jsinclude = require('gulp-include')
+
+
 /* html */
 //const htmlconcat = require('');
 
-/* webpack settings */
-const webpack = require('webpack');
-let webpackConf;
+
+/* ssh */
+const sshConfig = require('./../gulpfile.js').sshConfig;
+var gulpSSH = new ssh({
+  ignoreErrors: false,
+  sshConfig: sshConfig
+});
 
 /*--------- files to compile ---------*/
-const jsFiles = ['./src/index.ts', './src/test.ts'];
+const jsFiles = ['./' + proj_name + './ts/main.ts'];
 
-/* actual webpack */
-const config = {
-  mode: "development",
-
-  resolve: {
-    extensions: ['.ts', '.tsx']
+browSync.init({
+  port: 3000, 
+  server: {
+    baseDir: './' + proj_name,
   },
-
-  module: {
-    rules: [
-      {     
-        test: /\.ts?$/,
-        loaders: 'ts-loader',
-    },
-    {
-      test: /\.js$/,
-      use: ["source-map-loader"],
-      enforce: "pre"
-    }
-  ]
-  },
-};
+});
 
 function getFileName(file) {
   let slashPos = file.lastIndexOf("/") + 1;
@@ -61,86 +60,91 @@ function getFileName(file) {
   return file.substr(0, dotPos);
 }
 
-//input files ['file1', 'file2', ... ,'fileN']
-//output [config1{}, config2{}, ... , configN{}]
-function formConfig(files, dir){
-  let ret = [];
-  for(let i = 0; i < files.length; i++){
-    let conf = Object.assign({}, config, {
-      entry: files[i],
-      output: {
-        filename: getFileName(files[i]) + ".js",
-        path: path.resolve(__dirname, dir),
-      },
-    });
-    ret.push(conf);
-  }
-  return ret;
-}
-
-
-//webpack config
-function assets(cb) {
-    return new Promise((resolve, reject) => {
-        webpack(formConfig(jsFiles, 'dist'), (err, stats) => {
-            if (err) {
-                return reject(err)
-            }
-            if (stats.hasErrors()) {
-                return reject(new Error(stats.compilation.errors.join('\n')))
-            }
-            resolve()
-        })
-    })
-}
-
-function css(m=false) {
-  let add_func;
-  if(m == true){
-    add_func = minifyCSS;
-  } else {
-    add_func = cssbeautify;
-  } 
-  
-  return src("./" + proj_name + "/scss/main.scss")
+function css() {
+  return src("./" + proj_name + "/scss/**/*.{scss,css}")
     .pipe(sourcemaps.init())
     .pipe(sassGlob())
     .pipe(sass().on('error', sass.logError))
     .pipe(autoprefixer())
-    .pipe(add_func())
+    .pipe(cssbeautify())
     .pipe(sourcemaps.write('../maps'))
-    .pipe(dest("./" + proj_name + "/build/css"))
-    .pipe(browSync.stream())
-        
+    .pipe(dest("./" + proj_name + "/"+ built_folder +"/css"))
+    .pipe(browSync.stream())        
 }
 
-function js(m=false) {
-  return src("./" + proj_name + "/js/main.js", { sourcemaps: true })
+function js() {
+
+  var tsProject;
+  var ts = require("gulp-typescript");
+  var sourcemaps = require('gulp-sourcemaps');
+
+  if (!tsProject) {
+    tsProject = ts.createProject("tsconfig.js");
+  }
+
+  var reporter = ts.reporter.fullReporter();
+  var tsResult = tsProject.src()
     .pipe(sourcemaps.init())
-    
-    .pipe(sourcemaps.write('../maps'))
-    .pipe(browSync.stream())
-    
-}
+    .pipe(tsProject(reporter));
 
+  return tsResult.js
+    .pipe(sourcemaps.write())
+    .pipe(dest('./' + proj_name + '/'+ built_folder + '/js'));
+
+  /*
+  return src("./" + proj_name + "/ts/**//*.{ts,js}", { sourcemaps: true, base: process.cwd() })
+  /*  .pipe(sourcemaps.init())
+    .pipe(jsinclude()).on('error', console.log)
+    //.pipe(ext_replace('.js'))
+    .pipe(ts({
+        noImplicitAny: true,
+        declaration: true,
+        allowJs: true,
+
+    }))
+    .pipe(sourcemaps.write('../maps'))
+    .pipe(dest('./' + proj_name + '/'+ built_folder + '/js', { sourcemaps: true }))
+    .pipe(browSync.stream())
+
+    */
+}
 function html() {
   return;
 }
 
-function watch() {
-  browSync.init({
-    port: 3000, 
-    server: {
-      baseDir: './' + proj_name
-    }
-  });
+function pages(){
+  //"+ built_folder +"
+  return;
+}
 
+function watch() {
   gwatch('./' + proj_name + '/scss/**/*.scss', css);
-  gwatch('./' + proj_name + '/js/**/*.js', js);
+  gwatch('./' + proj_name + '/ts/**/*.{ts,js}', js);
   gwatch('./' + proj_name + '/*.html').on('change', browSync.reload).on('change', html);
 }
 
+
 task(proj_name, function() { 
+  return new Promise(function(resolve, reject) {
+    css();
+    js();
+    html();
+    watch();
+    resolve();
+  });
+});
+
+task(proj_name + "&m", function() { 
+  return new Promise(function(resolve, reject) {
+    css();
+    js();
+    html();
+    watch();
+    resolve();
+  });
+});
+
+task(proj_name + "&s", function() { 
   return new Promise(function(resolve, reject) {
     css();
     js();
