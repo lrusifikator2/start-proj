@@ -9,8 +9,7 @@ const gwatch = require('gulp').watch;
 const browSync = require('browser-sync').create();
 const sourcemaps = require('gulp-sourcemaps');
 const ssh = require('gulp-ssh');
-const built_folder = "built";
-const ext_replace = require('gulp-ext-replace');
+const clean = require('gulp-clean');
 
 /* css */
 const sass = require('gulp-sass');
@@ -32,20 +31,16 @@ const jsinclude = require('gulp-include')
 
 /* ssh */
 const sshConfig = require('./../gulpfile.js').sshConfig;
-var gulpSSH = new ssh({
+const gulpSSH = new ssh({
   ignoreErrors: false,
   sshConfig: sshConfig
 });
 
+/*-------------- vars ----------------*/
+const built_folder = "built";
+
 /*--------- files to compile ---------*/
 const jsFiles = ['./' + proj_name + './ts/main.ts'];
-
-browSync.init({
-  port: 3000, 
-  server: {
-    baseDir: './' + proj_name,
-  },
-});
 
 function getFileName(file) {
   let slashPos = file.lastIndexOf("/") + 1;
@@ -74,82 +69,100 @@ function css() {
 
 function js() {
 
-  var tsProject;
-  var ts = require("gulp-typescript");
-  var sourcemaps = require('gulp-sourcemaps');
-
-  if (!tsProject) {
-    tsProject = ts.createProject("tsconfig.js");
-  }
-
-  var reporter = ts.reporter.fullReporter();
-  var tsResult = tsProject.src()
+  return src("./" + proj_name + "/ts/**/*.{ts,js}", { sourcemaps: true })
     .pipe(sourcemaps.init())
-    .pipe(tsProject(reporter));
-
-  return tsResult.js
-    .pipe(sourcemaps.write())
-    .pipe(dest('./' + proj_name + '/'+ built_folder + '/js'));
-
-  /*
-  return src("./" + proj_name + "/ts/**//*.{ts,js}", { sourcemaps: true, base: process.cwd() })
-  /*  .pipe(sourcemaps.init())
     .pipe(jsinclude()).on('error', console.log)
-    //.pipe(ext_replace('.js'))
-    .pipe(ts({
-        noImplicitAny: true,
-        declaration: true,
-        allowJs: true,
+    .pipe(ts())
 
-    }))
     .pipe(sourcemaps.write('../maps'))
-    .pipe(dest('./' + proj_name + '/'+ built_folder + '/js', { sourcemaps: true }))
-    .pipe(browSync.stream())
-
-    */
-}
-function html() {
-  return;
+    .pipe(dest("./" + proj_name + "/"+ built_folder +"/js"), { sourcemaps: true })
+    .pipe(browSync.stream());
 }
 
 function pages(){
-  //"+ built_folder +"
-  return;
+  return src("./" + proj_name + "/pages/**/*.html")
+    .pipe(dest("./" + proj_name + "/"+ built_folder +"/"))
+    .pipe(browSync.stream())
+}
+
+function main_html(){
+  return src("./" + proj_name + "/index.html")
+    .pipe(dest("./" + proj_name + "/"+ built_folder +"/"))
+    .pipe(browSync.stream())
+}
+
+function img(){
+  return src("./" + proj_name + "/img/**/*")
+    .pipe(dest("./" + proj_name + "/"+ built_folder +"/img/"))
+    .pipe(browSync.stream())
+}
+
+function fonts(){
+  return src("./" + proj_name + "/fonts/**/*")
+    .pipe(dest("./" + proj_name + "/"+ built_folder +"/fonts/"))
+    .pipe(browSync.stream())
+}
+
+function compile_all() {
+  pages();
+  main_html();
+  css();
+  js();
+  fonts();
+  img();
 }
 
 function watch() {
+  browSync.init({
+    port: 3000, 
+    server: {
+      baseDir: './' + proj_name + "/" + built_folder + "/",
+    },
+  });
+
+  gwatch('./' + proj_name + '/fonts/**/*', fonts);
+  gwatch('./' + proj_name + '/img/**/*', img);
+  gwatch('./' + proj_name + '/pages/**/*.html', pages);
+  gwatch('./' + proj_name + '/index.html', main_html);
   gwatch('./' + proj_name + '/scss/**/*.scss', css);
   gwatch('./' + proj_name + '/ts/**/*.{ts,js}', js);
-  gwatch('./' + proj_name + '/*.html').on('change', browSync.reload).on('change', html);
 }
 
+function clean_all(){
+  return src("./" + proj_name + "/"+ built_folder +"/**/*")
+    .pipe(clean());
+}
+
+function ssh_all() {
+  return src("./" + proj_name + "/"+ built_folder +"/**/*")
+    .pipe(gulpSSH.dest('/var/www/html/');
+}
 
 task(proj_name, function() { 
   return new Promise(function(resolve, reject) {
-    css();
-    js();
-    html();
+    compile_all();
     watch();
     resolve();
+  });
+});
+
+task(proj_name + "&c", function() { 
+  return new Promise(function(resolve, reject) {
+    clean_all();
   });
 });
 
 task(proj_name + "&m", function() { 
   return new Promise(function(resolve, reject) {
-    css();
-    js();
-    html();
-    watch();
-    resolve();
+    compile_all();
   });
 });
 
 task(proj_name + "&s", function() { 
   return new Promise(function(resolve, reject) {
-    css();
-    js();
-    html();
-    watch();
-    resolve();
+    compile_all();
+    ssh_all();
   });
 });
+
+//eval(require("typescript").transpile(require("fs").readFileSync("./gulpclass.ts").toString()));
