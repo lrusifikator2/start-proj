@@ -1,6 +1,56 @@
-/* system */
 const path = require('path');
+
+/*================================== SETTINGS ===============================*/
 const proj_name = path.resolve(__dirname, '.').split(path.sep).pop();
+const built_folder = "built";
+
+const proj_path = "./" + proj_name;
+const built_path = proj_path + "/"+ built_folder;
+
+const js_version = "es5";
+
+const files_to_ssh = built_path + "/**/*";
+const sshDir = '/var/www/html/';
+const sshConfig = require('./../gulpfile.js').sshConfig;
+/*
+const sshConfig = {
+  host: '',
+  port: 22,
+  username: '',
+  password: ''
+};
+*/
+
+const min_dir = proj_path + "/min";
+const purify_css_html = built_path +"/**/*.html";
+
+/*------------------------------------- HTML -------------------------------------*/
+const pages_files = proj_path + "/pages/**/*.html";
+const pages_dest_dir = built_path;
+const min_pages_dest_dir = min_dir;
+
+/*------------------------------------- CSS -------------------------------------*/
+const scss_files = proj_path + "/scss/*.{scss,css}";
+const css_dest_dir = built_path +"/css";
+const min_css_dest_dir = min_dir + "/css";
+
+/*------------------------------------- JS -------------------------------------*/
+const ts_files = proj_path + "/ts/*.{ts,js}";
+const js_dest_dir = built_path +"/js";
+const min_js_dest_dir = min_dir + "/js";
+
+/*------------------------------------- IMG -------------------------------------*/
+const img_files = proj_path + "/img/**/*";
+const img_dest = built_path +"/img";
+const min_img_dest = min_dir +"/img";
+
+/*------------------------------------- FONTS -------------------------------------*/
+const fonts_files = proj_path + "/fonts/**/*";
+const fonts_dest = built_path +"/fonts";
+const min_fonts_dest = min_dir +"/fonts";
+
+/*======================================== PRESET ===============================*/
+/* system */
 const fs = require('fs');
 
 /* global */
@@ -8,161 +58,258 @@ const { src, dest, parallel, task } = require('gulp');
 const gwatch = require('gulp').watch;
 const browSync = require('browser-sync').create();
 const sourcemaps = require('gulp-sourcemaps');
-const ssh = require('gulp-ssh');
-const clean = require('gulp-clean');
 
 /* css */
 const sass = require('gulp-sass');
-const minifyCSS = require('gulp-cssnano');
 const cssbeautify = require('gulp-cssbeautify');
 const autoprefixer = require('gulp-autoprefixer');
 const sassGlob = require('gulp-sass-glob');
+const cssPurify = require('gulp-purgecss');
+
 
 /* js */
 const ts = require('gulp-typescript');
-const jsuglify = require('gulp-uglify');
-const jsbeautify = require('gulp-beautify');
 const jsinclude = require('gulp-include')
 
 
 /* html */
-//const htmlconcat = require('');
+const fileinclude = require('gulp-file-include');
 
-
-/* ssh */
-const sshConfig = require('./../gulpfile.js').sshConfig;
-const gulpSSH = new ssh({
-  ignoreErrors: false,
-  sshConfig: sshConfig
-});
-
-/*-------------- vars ----------------*/
-const built_folder = "built";
-
-/*--------- files to compile ---------*/
-const jsFiles = ['./' + proj_name + './ts/main.ts'];
-
-function getFileName(file) {
-  let slashPos = file.lastIndexOf("/") + 1;
-  let dotPos;
-
-  file = file.substr(slashPos);
-  dotPos = file.lastIndexOf(".")
-
-  if(dotPos == -1)
-    dotPos = file.length;
-
-  return file.substr(0, dotPos);
-}
-
+/*======================================== FUNCTIONS ===============================*/
 function css() {
-  return src("./" + proj_name + "/scss/**/*.{scss,css}")
+  let purify_files = [
+        purify_css_html
+  ];
+
+  return src(scss_files)
     .pipe(sourcemaps.init())
     .pipe(sassGlob())
     .pipe(sass().on('error', sass.logError))
     .pipe(autoprefixer())
     .pipe(cssbeautify())
+    .pipe(cssPurify(
+      { 
+        content: purify_files
+      }
+    ))
     .pipe(sourcemaps.write('../maps'))
-    .pipe(dest("./" + proj_name + "/"+ built_folder +"/css"))
+    .pipe(dest(css_dest_dir))
     .pipe(browSync.stream())        
 }
 
-function js() {
 
-  return src("./" + proj_name + "/ts/**/*.{ts,js}", { sourcemaps: true })
+
+function js() {
+  return src(ts_files, { sourcemaps: true })
     .pipe(sourcemaps.init())
     .pipe(jsinclude()).on('error', console.log)
-    .pipe(ts())
-
+    .pipe(ts(
+      {
+        noImplicitAny: true,
+        target: js_version, 
+        removeComments: false, 
+        allowJs: true
+      }
+    ))
     .pipe(sourcemaps.write('../maps'))
-    .pipe(dest("./" + proj_name + "/"+ built_folder +"/js"), { sourcemaps: true })
+    .pipe(dest(js_dest_dir), { sourcemaps: true })
     .pipe(browSync.stream());
 }
 
 function pages(){
-  return src("./" + proj_name + "/pages/**/*.html")
-    .pipe(dest("./" + proj_name + "/"+ built_folder +"/"))
+  return src([pages_files])
+    .pipe(fileinclude({
+      prefix: '@@',
+      basepath: '@file'
+    }))
+    .pipe(dest(pages_dest_dir))
     .pipe(browSync.stream())
 }
 
-function main_html(){
-  return src("./" + proj_name + "/index.html")
-    .pipe(dest("./" + proj_name + "/"+ built_folder +"/"))
-    .pipe(browSync.stream())
-}
 
 function img(){
-  return src("./" + proj_name + "/img/**/*")
-    .pipe(dest("./" + proj_name + "/"+ built_folder +"/img/"))
+  return src(img_files)
+    .pipe(dest(img_dest))
     .pipe(browSync.stream())
 }
 
 function fonts(){
-  return src("./" + proj_name + "/fonts/**/*")
-    .pipe(dest("./" + proj_name + "/"+ built_folder +"/fonts/"))
-    .pipe(browSync.stream())
+  return src(fonts_files)
+    .pipe(dest(fonts_dest))
+    .pipe(browSync.stream());
+}
+
+function minify_css(){
+  const cleanCSS = require('gulp-clean-css');
+  
+  let purify_files = [
+        purify_css_html
+  ];
+
+  return src(scss_files)
+    .pipe(sassGlob())
+    .pipe(sass().on('error', sass.logError))
+    .pipe(autoprefixer())
+    .pipe(cssPurify(
+      { 
+        content: purify_files
+      }
+    ))
+    .pipe(
+      cleanCSS({compatibility: 'ie10', debug: true}, (details) => {
+        console.log(`${details.name}: ${details.stats.originalSize}`);
+        console.log(`${details.name}: ${details.stats.minifiedSize}`);
+      })
+    )
+    .pipe(dest(min_css_dest_dir))
+}
+
+function minify_js() {
+  const uglify = require('gulp-uglify');
+  const pipeline = require('readable-stream').pipeline;
+
+  return pipeline(
+    src(ts_files), 
+    jsinclude().on('error', console.log),
+    ts(
+      {
+        noImplicitAny: true,
+        target: js_version, 
+        removeComments: false, 
+        allowJs: true
+      }
+    ),
+    uglify(),
+    dest(min_js_dest_dir)
+  );
+}
+
+function minify_fonts() {
+  return src(fonts_files)
+    .pipe(dest(min_fonts_dest))
+}
+
+function minify_img() {
+  const imagemin = require('gulp-imagemin');
+  
+  src(img_files)
+    .pipe(imagemin())
+    .pipe(dest(min_img_dest));
+}
+
+function minify_pages() {
+  const htmlmin = require('gulp-htmlmin');
+
+  return src([pages_files])
+    .pipe(fileinclude({
+      prefix: '@@',
+      basepath: '@file'
+    }))
+    .pipe(htmlmin(
+      { 
+        collapseWhitespace: true, 
+        removeComments: true, 
+        caseSensitive: true,
+        minifyCSS: true,
+        minifyJS: true, 
+        minifyURLs: true, 
+        removeEmptyAttributes: true,
+        removeScriptTypeAttribute: true, 
+        removeStyleLinkTypeAttributes: true,
+        //sortClassName: true, 
+        useShortDoctype: true
+
+      }
+    ))
+    .pipe(dest(min_pages_dest_dir))
+}
+
+function minify_all() {
+  minify_fonts();
+  minify_img();
+  minify_pages();
+  minify_js();
+  minify_css();
 }
 
 function compile_all() {
   pages();
-  main_html();
   css();
   js();
   fonts();
   img();
 }
 
-function watch() {
+function initBrowser() {
   browSync.init({
     port: 3000, 
     server: {
-      baseDir: './' + proj_name + "/" + built_folder + "/",
+      baseDir: built_path + "/",
     },
   });
-
-  gwatch('./' + proj_name + '/fonts/**/*', fonts);
-  gwatch('./' + proj_name + '/img/**/*', img);
-  gwatch('./' + proj_name + '/pages/**/*.html', pages);
-  gwatch('./' + proj_name + '/index.html', main_html);
-  gwatch('./' + proj_name + '/scss/**/*.scss', css);
-  gwatch('./' + proj_name + '/ts/**/*.{ts,js}', js);
+}
+function watch() {
+  gwatch(fonts_files, fonts);
+  gwatch(img_files, img);
+  gwatch(pages_files, pages);
+  gwatch(scss_files, css);
+  gwatch(ts_files, js);
 }
 
 function clean_all(){
-  return src("./" + proj_name + "/"+ built_folder +"/**/*")
-    .pipe(clean());
+  return src(built_path +"/*")
+    .pipe(require('gulp-clean')());
 }
 
 function ssh_all() {
-  return src("./" + proj_name + "/"+ built_folder +"/**/*")
-    .pipe(gulpSSH.dest('/var/www/html/');
+  return src(files_to_ssh)
+    .pipe(gulpSSH.dest(sshDir));
 }
 
+
+/*======================================== TASKS ===============================*/
 task(proj_name, function() { 
   return new Promise(function(resolve, reject) {
+    initBrowser()
     compile_all();
+
     watch();
     resolve();
   });
 });
 
-task(proj_name + "&c", function() { 
+task(proj_name + "_c", function() { 
   return new Promise(function(resolve, reject) {
+    console.log("Cleaning...");
     clean_all();
   });
 });
 
-task(proj_name + "&m", function() { 
+task(proj_name + "_m", function() { 
   return new Promise(function(resolve, reject) {
-    compile_all();
+    console.log("Minifying...");
+    minify_all();
   });
 });
 
-task(proj_name + "&s", function() { 
+task(proj_name + "_s", function() { 
   return new Promise(function(resolve, reject) {
-    compile_all();
+    console.log("Transferring over ssh...");
+    const ssh = require('gulp-ssh');
+    const gulpSSH = new ssh ({
+      ignoreErrors: false,
+      sshConfig: sshConfig
+    });
+
     ssh_all();
   });
 });
 
-//eval(require("typescript").transpile(require("fs").readFileSync("./gulpclass.ts").toString()));
+task(proj_name + "_hlp", function() { 
+  return new Promise(function(resolve, reject) {
+    console.log("--hlp            Display this message");
+    console.log("--m              Minify css and js");
+    console.log("--c              Clean built directory");
+    console.log("--s              Transfer built directory to the server using ssh");
+  });
+});

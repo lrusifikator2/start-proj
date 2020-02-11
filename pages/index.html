@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Document</title>
+	<link rel="stylesheet" href="css/main.css">
+	<meta name="viewport" content="width=device-width, initial-scale=1">	
+	<script defer src="js/main.js"></script>
+</head>
+<body>
+	<div class="greeting">
+		@@include('./index/greeting.html', {
+			"title": "Hi!",
+					"subtitle": {
+						"bold": "I'm a",
+						"regular": "gulp starter"
+					}
+		})
+	</div>
+	<!-- hi -->
+</body>
+</html>

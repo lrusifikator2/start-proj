@@ -1,18 +1,31 @@
-@import "pre.scss";
-//@import "../../fonts/stylesheet.css";
+//@import "../fonts/stylesheet.css";
+@import "lib/pre.scss";
+@import "lib/lib.scss";
+
+body {
+	height: 100%;
+	background-color: lightblue;
+	position: relative;
+}
+
+.greeting {
+	display: block;
+	position: absolute;
+	
+	left: 50%;
+	top: 50%;
+	transform: translate(-50%, -100%);
+	h1 {
+		text-align: center;
+		font-size: 70px;
+		font-weight: 500;
+		margin-bottom: 30px;
+	}
+
+	span, b {
+		font-size: 50px;
+		margin: 7px;
+	}
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-@import "resp.scss";
+}
