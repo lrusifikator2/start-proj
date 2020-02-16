@@ -94,13 +94,6 @@ function css() {
     .pipe(sass().on('error', sass.logError))
     .pipe(autoprefixer())
     .pipe(cssbeautify())
-    /*
-    .pipe(cssPurify(
-      { 
-        content: purify_files
-      }
-    ))
-    */
     .pipe(sourcemaps.write('../maps'))
     .pipe(dest(css_dest_dir))
     .pipe(browSync.stream())        
@@ -157,11 +150,6 @@ function minify_css(){
     .pipe(sassGlob())
     .pipe(sass().on('error', sass.logError))
     .pipe(autoprefixer())
-    .pipe(cssPurify(
-      { 
-        content: purify_files
-      }
-    ))
     .pipe(
       cleanCSS({compatibility: 'ie10', debug: true}, (details) => {
         console.log(`${details.name}: ${details.stats.originalSize}`);
