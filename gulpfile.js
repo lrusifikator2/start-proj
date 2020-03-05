@@ -2,7 +2,7 @@ const path = require('path');
 
 /*================================== SETTINGS ===============================*/
 const proj_name = path.resolve(__dirname, '.').split(path.sep).pop();
-const built_folder = "built";
+const built_folder = "build";
 
 const proj_path = "./" + proj_name;
 const built_path = proj_path + "/"+ built_folder;
